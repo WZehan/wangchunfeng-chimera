@@ -10,6 +10,12 @@ export interface Melody {
   bpm: number;
   t0?: number;
   lyrics: string;
+  /**
+   * Optional mouth captions (whitespace-split), same length as lyrics syllables / sounding notes.
+   * Used for display (e.g. Traditional Chinese); singing still uses `lyrics` for G2P.
+   * Melisma `-` tokens inherit the parent caption; Chinese captions do not append a trailing `-`.
+   */
+  captions?: string;
   notes: [number, number][];
 }
 
@@ -39,7 +45,15 @@ export function sungWords(m: Melody, syls: Syllable[], spell: Record<string, str
   const respell = new Map(Object.entries(spell).map(([k, v]) => [k.toLowerCase(), v]));
   const parent: number[] = [];
   syls.forEach((s, i) => parent.push(s.melisma && i > 0 ? parent[i - 1] : i));
+  const caps = m.captions?.trim() ? m.captions.trim().split(/\s+/) : null;
+  if (caps && caps.length !== syls.length) {
+    throw new Error(`${caps.length} captions for ${syls.length} syllables`);
+  }
   const shown = parent.map((p) => {
+    if (caps) {
+      // captions are already the display form; melisma parents keep the parent char (no "-" suffix)
+      return caps[p];
+    }
     const s = syls[p];
     return (respell.get(s.text.toLowerCase()) ?? s.text) + (s.wordEnd ? "" : "-");
   });

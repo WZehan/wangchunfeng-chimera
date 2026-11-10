@@ -62,12 +62,16 @@ export function mouthWords(now: () => MouthWord | null, color: string, side: 1 |
     for (const { word: wd, left } of trail) {
       const age = left === null ? 0 : clock - left;
       const u = Math.min(1, age / FADE);
-      const text = wd.text.toUpperCase();
-      ctx.font = hfont(base, "m");
+      const cjk = /[\u3400-\u9FFF]/.test(wd.text);
+      const text = cjk ? wd.text : wd.text.toUpperCase();
+      const cjkFont = '"WangChunFeng CJK", "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
+      ctx.font = cjk ? `500 ${base}px ${cjkFont}` : hfont(base, "m");
       const wide = ctx.measureText(text).width * 1.08;
       const size = (wide > room ? (base * room) / wide : base) * (1 - 0.55 * u);
       const alpha = left === null ? 1 : 0.75 * (1 - u) ** 1.5;
-      const o = { size, color, weight: "m" as const, ls: 0.05, alpha, moving: left !== null };
+      const o = cjk
+        ? { size, color, alpha, moving: left !== null, font: `500 ${size}px ${cjkFont}`, ls: 0 }
+        : { size, color, weight: "m" as const, ls: 0.05, alpha, moving: left !== null };
       if (below) {
         const half = (Math.min(wide, room) * (1 - 0.55 * u)) / 2;
         label(ctx, text, Math.min(w - 8 - half, Math.max(8 + half, lx)), by + age * 120, { ...o, align: "center" });

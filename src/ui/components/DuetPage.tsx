@@ -29,6 +29,8 @@ import { g2p } from "../speech.ts";
 import { lyricsToSyllables } from "../../wasm/engine.ts";
 import { sungWords, wordAt, type Melody, type SungWords } from "../../show/words.ts";
 import type { OverlayFn } from "./AnatomyView.tsx";
+import { headwearForVoice } from "./HeadwearOverlay.tsx";
+import { SiteLinks } from "./SiteLinks.tsx";
 
 interface ShowFile {
   title: string;
@@ -112,6 +114,10 @@ export function DuetPage(props: { id: string }) {
   if (error)
     return (
       <div className="duet">
+        <header className="duet-top">
+          <span className="wordmark">Chimera</span>
+          <SiteLinks />
+        </header>
         <p className="duet-msg error">This show could not load: {error}</p>
       </div>
     );
@@ -122,9 +128,10 @@ export function DuetPage(props: { id: string }) {
       <header className="duet-top">
         <span className="wordmark">Chimera</span>
         <span className="duet-title">{title}</span>
+        <SiteLinks />
       </header>
-      <main className="duet-heads" style={{ "--voices": loaded?.voices.length ?? 2 } as React.CSSProperties}>
-        {loaded && transport ? loaded.voices.map((v, i) => <Head key={i} name={v.name} track={v.track} words={v.words} show={loaded.show} transport={transport} facing={i > 0 && i === loaded.voices.length - 1 ? -1 : 1} />) : <p className="duet-msg">Loading the song…</p>}
+      <main className={`duet-heads${loaded && loaded.voices.length >= 3 ? " featured" : ""}`} style={{ "--voices": loaded?.voices.length ?? 2 } as React.CSSProperties}>
+        {loaded && transport ? loaded.voices.map((v, i) => <Head key={i} name={v.name} track={v.track} words={v.words} show={loaded.show} transport={transport} facing={i === 0 ? 1 : i === loaded.voices.length - 1 ? -1 : 1} lead={i === 0} />) : <p className="duet-msg">Loading the song…</p>}
       </main>
       <footer className="duet-bar">
         <button className="primary large" disabled={!loaded} onClick={() => (st.playing ? transport?.pause() : transport?.play())}>
@@ -150,7 +157,7 @@ export function DuetPage(props: { id: string }) {
 }
 
 /** one voice's head; the last of several turns to face the others */
-function Head(props: { name: string; track: TeleTrack; words: SungWords | null; show: ShowFile; transport: Transport; facing: 1 | -1 }) {
+function Head(props: { name: string; track: TeleTrack; words: SungWords | null; show: ShowFile; transport: Transport; facing: 1 | -1; lead?: boolean }) {
   const { track, show, transport, words } = props;
   const feedRef = useRef<HeadFeed | null>(null);
   // the syllable at the mouth, written on the side the face looks to
@@ -179,8 +186,8 @@ function Head(props: { name: string; track: TeleTrack; words: SungWords | null; 
     };
   }
   return (
-    <Screen className="duet-head" focus title={props.name} sub={bodyLabel(track.body)} label={`${props.name} voice, ${bodyLabel(track.body)}, in 3D`}>
-      <AnatomyView3D feed={feedRef.current} readouts={false} overlay={overlayRef.current} />
+    <Screen className={`duet-head${props.lead ? " duet-lead" : " duet-harm"}`} focus title={props.name} sub={bodyLabel(track.body)} label={`${props.name} voice, ${bodyLabel(track.body)}, in 3D`}>
+      <AnatomyView3D feed={feedRef.current} readouts={false} overlay={overlayRef.current} headwear={headwearForVoice(props.name)} />
     </Screen>
   );
 }

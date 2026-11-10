@@ -11,6 +11,14 @@
   font-display: swap;
 }
 @font-face {
+  font-family: "WangChunFeng CJK";
+  src: url("/fonts/wangchunfeng-cjk.woff2") format("woff2");
+  font-weight: 400 500;
+  font-display: swap;
+  unicode-range: U+3400-9FFF;
+}
+
+@font-face {
   font-family: "Archivo";
   src: url("/fonts/archivo-latin.woff2") format("woff2");
   font-weight: 100 900;
@@ -2796,6 +2804,38 @@ input[type="range"]::-moz-range-thumb {
   gap: 18px;
   min-width: 0;
   padding: 4px 2px;
+  position: relative;
+  z-index: 20;
+}
+
+/* Home / GitHub badges, same shields.io flat-square look as wangzehan.com */
+.site-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+  line-height: 0;
+}
+
+.duet-top .site-links {
+  align-self: center;
+}
+
+.topbar-right .site-links {
+  margin-left: 0;
+}
+
+.site-links a {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.site-links img {
+  display: block;
+  height: 20px;
 }
 
 .duet-title {
@@ -2818,6 +2858,37 @@ input[type="range"]::-moz-range-thumb {
 
 .duet-head .screen-body {
   min-height: 180px;
+}
+
+/* Featured lead: large center head, harmonies on the sides */
+.duet-heads.featured {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.35fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.duet-heads.featured .duet-lead {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+.duet-heads.featured .duet-harm:nth-of-type(2) { grid-column: 1; grid-row: 1; }
+.duet-heads.featured .duet-harm:nth-of-type(3) { grid-column: 3; grid-row: 1; }
+.duet-heads.featured .duet-harm:nth-of-type(4) { grid-column: 1; grid-row: 2; }
+.duet-heads.featured .duet-harm:nth-of-type(5) { grid-column: 3; grid-row: 2; }
+.duet-heads.featured .duet-lead .screen-body {
+  min-height: 320px;
+}
+.duet-heads.featured .duet-lead .screen-head {
+  font-size: 15px;
+  letter-spacing: 0.12em;
+}
+.duet-heads.featured .duet-lead {
+  outline: 1px solid rgba(120, 200, 255, 0.35);
+  box-shadow: 0 0 24px rgba(80, 160, 255, 0.18);
+}
+
+/* Stroke-only hair/hat overlays on duet heads (cyan wire language) */
+.duet-head .screen-body {
+  position: relative;
 }
 
 .duet-bar {
@@ -2865,3 +2936,5 @@ input[type="range"]::-moz-range-thumb {
     padding: 7px 8px 0;
   }
 }
+
+/* headwear-overlay CSS retired — strokes now in anatomy3d fixed groups */

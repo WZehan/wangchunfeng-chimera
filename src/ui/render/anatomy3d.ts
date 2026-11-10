@@ -27,6 +27,11 @@ import { Beams, Poly } from "./beams3d.ts";
 import { bodyPoint, buildProfile, Gaze, jawAngle, wallX } from "./profile.ts";
 import { faceHandles, type FaceView, type ViewFlags } from "./anatomy.ts";
 import { Expression } from "./expression.ts";
+import type { HeadwearKind } from "../components/HeadwearOverlay.tsx";
+
+/** stroke cyan matching the retired 2D HeadwearOverlay */
+const HW = "#5ec8ff";
+const HW_DIM = "#4fb6f2";
 
 type Table = readonly (readonly [number, number])[];
 type V3 = [number, number, number];
@@ -206,6 +211,7 @@ interface Skinned {
 /** everything that only depends on the body, in the rest pose (jaw closed) */
 interface Rest {
   model: VoiceModel;
+  headwear: HeadwearKind | null;
   head: Shape;
   condyle: Vec;
   /** the lips' patch reaches this far to each side (the shell leaves a hole for it) */
@@ -307,7 +313,7 @@ const cumulative = (p: Vec[]): number[] => {
 
 // ------------------------------------------------------------------ the rest pose
 
-function buildRest(model: VoiceModel): Rest {
+function buildRest(model: VoiceModel, headwear: HeadwearKind | null = null): Rest {
   const t = model.tract;
   const k = t.scale;
   const ph = model.bodyParams.pharynx;
@@ -608,7 +614,163 @@ function buildRest(model: VoiceModel): Rest {
   // eyes: the 2D view draws one on the midline; here they sit either side of the nose
   const eyeC = B(6.15, 15.35);
   const center = new THREE.Vector3(0.3 * k, (head.y0 + head.y1) / 2, 0);
-  return { model, head, condyle, lipHalf, center, shell, fixed, jaw, chin, eyes: [[eyeC.x, eyeC.y, 3.15 * k], [eyeC.x, eyeC.y, -3.15 * k]], eyeR: 1.05 * k };
+
+  // ---- headwear (skull-fixed cyan strokes; replaces the old 2D SVG overlay)
+  // Curves live in template (Y up, zFrac across the face). onForehead pins them to the
+  // skull front so bangs/hats/hair turn with the head, not as a screen-space layer.
+  if (headwear) {
+    const onForehead = (L: Lines, pts: [number, number][], lift = 0.18) => {
+      for (const [zf, Y] of pts) {
+        const y = By(Y);
+        const s = head.at(y);
+        if (!s || s.W < 0.15 * k) continue;
+        const z = zf * s.W * 0.95;
+        L.p(frontX(s, z) + lift * k, y, z);
+      }
+      L.end();
+    };
+    const onCrown = (L: Lines, pts: [number, number][], lift = 0.22) => {
+      // pts: [zFrac, Y] around the top of the skull (slightly above forehead)
+      for (const [zf, Y] of pts) {
+        const y = By(Y);
+        const s = head.at(y);
+        if (!s || s.W < 0.15 * k) continue;
+        const z = zf * s.W * 0.98;
+        // bias toward the top: blend frontX with a higher meridian
+        const xFront = frontX(s, z);
+        const xTop = s.xw + (s.F - s.xw) * 0.35;
+        L.p(xFront * 0.55 + xTop * 0.45 + lift * k, y + 0.05 * k, z);
+      }
+      L.end();
+    };
+    const sideStrand = (L: Lines, side: number, Y0: number, Y1: number, zFrac: number, lift = 0.12) => {
+      for (let i = 0; i <= 10; i++) {
+        const t = i / 10;
+        const Y = Y0 + (Y1 - Y0) * t;
+        const y = By(Y);
+        const s = head.at(y);
+        if (!s) continue;
+        const z = side * zFrac * s.W;
+        L.p(frontX(s, z) * 0.25 + (s.xw - (s.xw - s.Bk) * 0.15) * 0.75 + lift * k, y, z);
+      }
+      L.end();
+    };
+
+    if (headwear === "lead-bangs") {
+      group(fixed, HW, 1.15, 0.95, (L) => {
+        // crown outline
+        onCrown(L, [[-0.85, 19.2], [-0.55, 20.6], [-0.15, 21.4], [0.25, 21.55], [0.65, 21.1], [0.9, 19.6]]);
+        onCrown(L, [[-0.8, 18.9], [-0.45, 20.2], [0.0, 20.9], [0.4, 21.0], [0.75, 20.3], [0.88, 19.0]], 0.14);
+        // side-swept fringe (thicker tip toward the singer's right temple)
+        onForehead(L, [[-0.7, 18.2], [-0.35, 17.4], [0.05, 16.9], [0.4, 16.85], [0.7, 17.2], [0.88, 18.0]]);
+        onForehead(L, [[-0.62, 17.9], [-0.25, 17.15], [0.15, 16.7], [0.45, 16.75], [0.72, 17.15], [0.86, 17.9]], 0.12);
+        onForehead(L, [[-0.5, 17.6], [-0.1, 16.95], [0.25, 16.55], [0.55, 16.7], [0.78, 17.3]], 0.1);
+        // longer fringe tip dangling toward the eye
+        onForehead(L, [[0.35, 17.0], [0.55, 16.5], [0.72, 16.0], [0.82, 15.4]], 0.16);
+        onForehead(L, [[0.28, 17.1], [0.48, 16.6], [0.65, 16.1], [0.75, 15.5]], 0.12);
+      });
+      group(fixed, HW_DIM, 0.85, 0.7, (L) => {
+        sideStrand(L, -1, 18.0, 14.2, 0.92, 0.08);
+        sideStrand(L, -1, 17.8, 14.8, 0.82, 0.06);
+      });
+    } else if (headwear === "flat-cap") {
+      group(fixed, HW, 1.15, 0.95, (L) => {
+        // brim
+        onForehead(L, [[-0.92, 16.6], [-0.55, 16.25], [-0.1, 16.1], [0.35, 16.15], [0.7, 16.35], [0.92, 16.7]], 0.2);
+        onForehead(L, [[-0.88, 16.85], [-0.5, 16.5], [0.0, 16.35], [0.4, 16.4], [0.75, 16.55], [0.9, 16.85]], 0.14);
+        // soft crown
+        onCrown(L, [[-0.75, 17.0], [-0.5, 19.0], [-0.1, 20.2], [0.3, 20.3], [0.65, 19.4], [0.82, 17.4]]);
+        onCrown(L, [[-0.65, 17.1], [-0.35, 18.8], [0.05, 19.8], [0.35, 19.85], [0.62, 18.9], [0.75, 17.3]], 0.12);
+        // panel seams + button
+        onCrown(L, [[0.0, 20.1], [0.0, 17.2]], 0.1);
+        onCrown(L, [[-0.35, 19.2], [-0.15, 17.4]], 0.08);
+        onCrown(L, [[0.4, 19.2], [0.2, 17.4]], 0.08);
+        const yb = By(19.6);
+        const sb = head.at(yb);
+        if (sb) {
+          const z = 0;
+          const x = frontX(sb, z) * 0.5 + sb.F * 0.5 + 0.15 * k;
+          L.ellipse([x, yb, 0], [0.22 * k, 0, 0], [0, 0, 0.22 * k], 12);
+        }
+      });
+    } else if (headwear === "fedora") {
+      group(fixed, HW, 1.15, 0.95, (L) => {
+        // wide brim ring
+        onForehead(L, [[-0.98, 16.9], [-0.6, 16.4], [-0.15, 16.2], [0.3, 16.25], [0.7, 16.5], [0.98, 16.95], [0.7, 17.25], [0.0, 17.35], [-0.7, 17.2], [-0.98, 16.9]], 0.22);
+        // crown
+        onCrown(L, [[-0.7, 17.1], [-0.45, 19.2], [-0.05, 20.5], [0.35, 20.55], [0.7, 19.5], [0.82, 17.3]]);
+        onCrown(L, [[-0.6, 17.2], [-0.3, 19.0], [0.05, 20.1], [0.35, 20.1], [0.62, 19.0], [0.72, 17.3]], 0.12);
+        // pinched crease + band
+        onCrown(L, [[-0.2, 20.2], [0.0, 19.7], [0.25, 20.2]], 0.1);
+        onForehead(L, [[-0.72, 17.6], [-0.3, 17.35], [0.15, 17.35], [0.65, 17.55]], 0.18);
+        onForehead(L, [[-0.7, 17.85], [-0.25, 17.6], [0.2, 17.6], [0.62, 17.8]], 0.14);
+      });
+    } else if (headwear === "long-hair-scarf") {
+      group(fixed, HW, 1.1, 0.92, (L) => {
+        onCrown(L, [[-0.82, 18.5], [-0.45, 20.5], [0.0, 21.3], [0.4, 21.2], [0.78, 20.0], [0.9, 18.2]]);
+        onForehead(L, [[-0.55, 17.8], [-0.2, 17.1], [0.2, 16.9], [0.55, 17.2]], 0.12);
+        onForehead(L, [[-0.45, 17.5], [-0.05, 16.9], [0.3, 16.8], [0.58, 17.1]], 0.1);
+      });
+      group(fixed, HW, 1.05, 0.88, (L) => {
+        sideStrand(L, -1, 18.2, 11.5, 0.95, 0.1);
+        sideStrand(L, -1, 18.0, 12.0, 0.85, 0.08);
+        sideStrand(L, 1, 18.2, 11.2, 0.95, 0.1);
+        sideStrand(L, 1, 18.0, 11.8, 0.85, 0.08);
+      });
+      group(fixed, HW_DIM, 1.0, 0.8, (L) => {
+        // scarf loop around the neck (below the jaw border → stays skull/neck-fixed)
+        const loop: [number, number][] = [[-0.7, 9.2], [-0.35, 8.7], [0.0, 8.55], [0.4, 8.7], [0.75, 9.3]];
+        for (const [zf, Y] of loop) {
+          const y = By(Y);
+          const s = head.at(y);
+          if (!s) continue;
+          const z = zf * Math.max(2.2 * k, s.W * 0.55);
+          L.p((s.F + s.Bk) * 0.5 + 0.4 * k, y, z);
+        }
+        L.end();
+        for (const [zf, Y] of [[-0.65, 8.9], [-0.25, 8.5], [0.2, 8.5], [0.65, 9.0]] as [number, number][]) {
+          const y = By(Y);
+          const s = head.at(y);
+          if (!s) continue;
+          const z = zf * Math.max(2.0 * k, s.W * 0.5);
+          L.p((s.F + s.Bk) * 0.5 + 0.35 * k, y, z);
+        }
+        L.end();
+        // scarf tails
+        for (const side of [-1, 1]) {
+          for (let i = 0; i <= 8; i++) {
+            const t = i / 8;
+            const y = By(9.0 - 3.8 * t);
+            const z = side * (1.6 + 0.4 * t) * k;
+            L.p(1.2 * k + 0.3 * t * k, y, z);
+          }
+          L.end();
+        }
+      });
+    } else if (headwear === "short-hair") {
+      group(fixed, HW_DIM, 0.85, 0.55, (L) => {
+        onCrown(L, [[-0.8, 17.6], [-0.4, 19.8], [0.05, 20.8], [0.45, 20.7], [0.8, 19.2], [0.9, 17.5]], 0.1);
+      });
+      group(fixed, HW, 1.15, 0.95, (L) => {
+        const spikes: [number, number, number][] = [
+          [-0.55, 17.8, 20.6], [-0.35, 18.1, 21.2], [-0.1, 18.3, 21.5],
+          [0.1, 18.35, 21.55], [0.3, 18.2, 21.3], [0.5, 17.95, 20.8], [0.7, 17.6, 20.0],
+        ];
+        for (const [zf, Y0, Y1] of spikes) {
+          const y0 = By(Y0), y1 = By(Y1);
+          const s0 = head.at(y0), s1 = head.at(y1);
+          if (!s0 || !s1) continue;
+          const z0 = zf * s0.W * 0.9, z1 = zf * s1.W * 0.7;
+          L.p(frontX(s0, z0) + 0.12 * k, y0, z0);
+          L.p(frontX(s1, z1) * 0.4 + s1.F * 0.6 + 0.25 * k, y1 + 0.15 * k, z1);
+          L.end();
+        }
+        onForehead(L, [[-0.55, 17.7], [-0.2, 17.0], [0.2, 16.85], [0.55, 17.15]], 0.1);
+      });
+    }
+  }
+
+  return { model, headwear, head, condyle, lipHalf, center, shell, fixed, jaw, chin, eyes: [[eyeC.x, eyeC.y, 3.15 * k], [eyeC.x, eyeC.y, -3.15 * k]], eyeR: 1.05 * k };
 }
 
 // ------------------------------------------------------------------ the renderer
@@ -644,6 +806,8 @@ export class Anatomy3D {
   /** which way the turned home view shows the face: 1 to the right, −1 to the left (a duet's
    *  second head, so the two sing towards each other) */
   facing: 1 | -1 = 1;
+  /** skull-fixed hair/hat strokes for duet voices (null = bare anatomy) */
+  headwear: HeadwearKind | null = null;
   private clock = 0;
   private readonly gaze = new Gaze();
   /** brows, lids, cheeks and the head's nods, from the voice (the view updates it) */
@@ -716,7 +880,7 @@ export class Anatomy3D {
   }
 
   private restFor(model: VoiceModel): Rest {
-    if (!this.rest || this.rest.model !== model) this.rest = buildRest(model);
+    if (!this.rest || this.rest.model !== model || this.rest.headwear !== this.headwear) this.rest = buildRest(model, this.headwear);
     return this.rest;
   }
 

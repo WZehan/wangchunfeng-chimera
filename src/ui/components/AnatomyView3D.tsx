@@ -22,6 +22,7 @@ import { articulatorSlots, tractInfo, type InfoFn, type OverlayFn, type SlotsFn 
 import type { ViewFlags } from "../render/anatomy.ts";
 import type { HumanArtic } from "../../wasm/engine.ts";
 import type { TelemetryMessage } from "../../worklet/protocol.ts";
+import type { HeadwearKind } from "./HeadwearOverlay.tsx";
 
 /**
  * A head driven by something other than the live engine (the duet page's recordings): its own
@@ -40,13 +41,15 @@ export interface HeadFeed {
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
-export function AnatomyView3D(props: { slots?: SlotsFn; info?: InfoFn; showFormants?: boolean; overlay?: OverlayFn; feed?: HeadFeed; readouts?: boolean }) {
+export function AnatomyView3D(props: { slots?: SlotsFn; info?: InfoFn; showFormants?: boolean; overlay?: OverlayFn; feed?: HeadFeed; readouts?: boolean; headwear?: HeadwearKind | null }) {
   const feedRef = useRef<HeadFeed | undefined>(props.feed);
   feedRef.current = props.feed;
   const readoutsRef = useRef(props.readouts ?? true);
   readoutsRef.current = props.readouts ?? true;
   const overlayRef = useRef<OverlayFn | undefined>(props.overlay);
   overlayRef.current = props.overlay;
+  const headwearRef = useRef<HeadwearKind | null | undefined>(props.headwear);
+  headwearRef.current = props.headwear;
   const formantsRef = useRef(props.showFormants ?? true);
   formantsRef.current = props.showFormants ?? true;
   const slotsRef = useRef<SlotsFn>(props.slots ?? articulatorSlots);
@@ -76,6 +79,7 @@ export function AnatomyView3D(props: { slots?: SlotsFn; info?: InfoFn; showForma
     const r = new Anatomy3D();
     r.centred = !readoutsRef.current;
     r.facing = feedRef.current?.facing ?? 1;
+    r.headwear = headwearRef.current ?? null;
     const glow = new Glow();
     const camera = r.camera;
     const controls = new OrbitControls(camera, canvas);
@@ -189,6 +193,7 @@ export function AnatomyView3D(props: { slots?: SlotsFn; info?: InfoFn; showForma
         a = tele ? VoiceModel.articFromArray(tele.t.artic) : st.artic;
       }
       const view = feed ? feed.view : st.view;
+      r.headwear = headwearRef.current ?? null;
       r.face.content = pet.content;
       r.face.update(tele, elapsed);
       const m = feed ? feed.model : model.current;

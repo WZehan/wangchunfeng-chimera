@@ -110,6 +110,8 @@ export interface LabelOpts {
   /** letter spacing as a fraction of the size */
   ls?: number;
   alpha?: number;
+  /** full CSS font string; when set, overrides Hershey `hfont(size, weight)` */
+  font?: string;
   /**
    * text in flight, meant to pass over other text or off the edge (a word flying off the lips);
    * tools/layout-lint.ts skips it
@@ -123,8 +125,8 @@ export function label(ctx: CanvasRenderingContext2D, text: string, x: number, y:
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   ctx.globalAlpha = o.alpha ?? 1;
-  ctx.font = hfont(size, o.weight);
-  if (hasLetterSpacing) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${((o.ls ?? 0.14) * size).toFixed(2)}px`;
+  ctx.font = o.font ?? hfont(size, o.weight);
+  if (hasLetterSpacing) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${((o.ls ?? (o.font ? 0 : 0.14)) * size).toFixed(2)}px`;
   ctx.textAlign = o.align ?? "left";
   ctx.textBaseline = o.baseline ?? "alphabetic";
   ctx.fillStyle = o.color ?? V.blue;
@@ -139,8 +141,8 @@ export function label(ctx: CanvasRenderingContext2D, text: string, x: number, y:
 export function labelWidth(ctx: CanvasRenderingContext2D, text: string, o: LabelOpts = {}): number {
   const size = o.size ?? 11;
   ctx.save();
-  ctx.font = hfont(size, o.weight);
-  if (hasLetterSpacing) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${((o.ls ?? 0.14) * size).toFixed(2)}px`;
+  ctx.font = o.font ?? hfont(size, o.weight);
+  if (hasLetterSpacing) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${((o.ls ?? (o.font ? 0 : 0.14)) * size).toFixed(2)}px`;
   const wd = ctx.measureText(text).width;
   ctx.restore();
   return wd;
